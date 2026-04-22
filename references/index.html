@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diff — Compare Text</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&family=SF+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --glass-bg: rgba(255,255,255,0.55);
+    --glass-border: rgba(255,255,255,0.75);
+    --glass-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+    --glass-inset: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(0,0,0,0.04);
+    --blur: blur(24px) saturate(1.8);
+    --text: #1c1c1e;
+    --text-secondary: rgba(60,60,67,0.6);
+    --text-tertiary: rgba(60,60,67,0.35);
+    --accent: #007AFF;
+    --accent-soft: rgba(0,122,255,0.12);
+    --add-bg: rgba(52,199,89,0.12);
+    --add-char: rgba(52,199,89,0.35);
+    --add-text: #1a7a34;
+    --del-bg: rgba(255,59,48,0.1);
+    --del-char: rgba(255,59,48,0.3);
+    --del-text: #c0271e;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --radius-xs: 6px;
+    --font: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    --mono: "SF Mono", "Menlo", "Monaco", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --glass-bg: rgba(40,40,45,0.65);
+      --glass-border: rgba(255,255,255,0.12);
+      --glass-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
+      --glass-inset: inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.2);
+      --text: rgba(255,255,255,0.95);
+      --text-secondary: rgba(235,235,245,0.6);
+      --text-tertiary: rgba(235,235,245,0.28);
+      --add-bg: rgba(52,199,89,0.14);
+      --add-char: rgba(52,199,89,0.4);
+      --add-text: #3dcf68;
+      --del-bg: rgba(255,59,48,0.14);
+      --del-char: rgba(255,59,48,0.4);
+      --del-text: #ff6b63;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  body {
+    background: linear-gradient(135deg, #e8f0fe 0%, #dbeafe 20%, #ede9fe 45%, #fce7f3 70%, #d1fae5 100%);
+    background-attachment: fixed;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: linear-gradient(135deg, #0d1117 0%, #0f172a 30%, #1a0a2e 60%, #0f1923 100%);
+    }
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 30%, rgba(120,160,255,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 60% at 80% 70%, rgba(180,100,255,0.14) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 50% 10%, rgba(100,220,180,0.12) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  /* Title bar */
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+
+  .traffic-lights {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+  }
+
+  .tl {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    cursor: default;
+    position: relative;
+    transition: filter 0.15s;
+  }
+  .tl:hover { filter: brightness(0.85); }
+  .tl-close { background: #FF5F57; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.15); }
+  .tl-min   { background: #FFBD2E; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.1); }
+  .tl-max   { background: #28C840; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.1); }
+
+  .app-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.01em;
+    flex: 1;
+    text-align: center;
+    margin-right: 55px;
+  }
+
+  /* Toolbar pill */
+  .toolbar-wrap {
+    flex-shrink: 0;
+  }
+
+  .toolbar {
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: var(--glass-shadow), var(--glass-inset);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .seg-group {
+    display: flex;
+    background: rgba(120,120,128,0.12);
+    border-radius: var(--radius-xs);
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .seg-btn {
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 12px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: -0.01em;
+  }
+  .seg-btn.active {
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 0.5px 0 rgba(255,255,255,0.6);
+  }
+
+  .divider { width: 1px; height: 18px; background: rgba(120,120,128,0.2); flex-shrink: 0; }
+
+  .check-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+  }
+  .check-label:hover { color: var(--text); }
+  .check-label input[type=checkbox] {
+    appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(120,120,128,0.4);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .check-label input[type=checkbox]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .check-label input[type=checkbox]:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px; top: 1px;
+    width: 5px; height: 8px;
+    border: 1.5px solid white;
+    border-top: none; border-left: none;
+    transform: rotate(40deg);
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+
+  .stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.01em;
+  }
+  .stat-badge.add { background: var(--add-bg); color: var(--add-text); }
+  .stat-badge.del { background: var(--del-bg); color: var(--del-text); }
+  .stat-badge.eq  { background: rgba(120,120,128,0.1); color: var(--text-secondary); }
+  .stat-badge svg { width: 10px; height: 10px; }
+
+  /* Editor pane */
+  .editors {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .editor-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: var(--glass-shadow), var(--glass-inset);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 7px;
+    border-bottom: 1px solid rgba(120,120,128,0.1);
+  }
+
+  .editor-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .line-count {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text);
+    padding: 10px 14px;
+    resize: none;
+    min-height: 140px;
+    -webkit-font-smoothing: subpixel-antialiased;
+  }
+  textarea::placeholder { color: var(--text-tertiary); }
+
+  /* Diff output */
+  .diff-card {
+    flex: 1;
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: var(--glass-shadow), var(--glass-inset);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .diff-card-header {
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(120,120,128,0.1);
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .diff-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .diff-scroll {
+    flex: 1;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Side-by-side */
+  .diff-side-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100%;
+  }
+
+  .diff-col { overflow-x: auto; }
+  .diff-col + .diff-col { border-left: 1px solid rgba(120,120,128,0.1); }
+
+  .diff-col-hdr {
+    position: sticky;
+    top: 0;
+    font-family: var(--font);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 5px 10px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-bottom: 1px solid rgba(120,120,128,0.08);
+    z-index: 2;
+  }
+
+  .diff-line {
+    display: flex;
+    align-items: stretch;
+    min-height: 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.65;
+    transition: background 0.1s;
+  }
+
+  .ln {
+    min-width: 38px;
+    padding: 0 8px;
+    text-align: right;
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(120,120,128,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .lc {
+    padding: 0 10px;
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+  }
+
+  .line-add { background: var(--add-bg); }
+  .line-del { background: var(--del-bg); }
+  .line-add .ln { color: rgba(52,199,89,0.5); border-color: rgba(52,199,89,0.15); }
+  .line-del .ln { color: rgba(255,59,48,0.5); border-color: rgba(255,59,48,0.15); }
+
+  .c-add { background: var(--add-char); border-radius: 3px; padding: 1px 1px; color: var(--add-text); }
+  .c-del { background: var(--del-char); border-radius: 3px; padding: 1px 1px; color: var(--del-text); text-decoration: line-through; text-decoration-color: var(--del-text); }
+
+  .inline-mark {
+    width: 20px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+  }
+  .line-add .inline-mark { color: var(--add-text); }
+  .line-del .inline-mark { color: var(--del-text); }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 120px;
+    gap: 8px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+
+  .empty-icon {
+    width: 36px; height: 36px;
+    opacity: 0.25;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(120,120,128,0.25); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(120,120,128,0.4); }
+
+  /* Hover row highlight */
+  .diff-line:hover { filter: brightness(0.97); }
+  @media (prefers-color-scheme: dark) {
+    .diff-line:hover { filter: brightness(1.06); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="titlebar">
+    <div class="traffic-lights">
+      <div class="tl tl-close"></div>
+      <div class="tl tl-min"></div>
+      <div class="tl tl-max"></div>
+    </div>
+    <div class="app-title">Diff — Text Comparison</div>
+  </div>
+
+  <div class="toolbar-wrap">
+    <div class="toolbar">
+      <div class="seg-group">
+        <button class="seg-btn active" id="btn-side">Side by Side</button>
+        <button class="seg-btn" id="btn-inline">Inline</button>
+      </div>
+      <div class="divider"></div>
+      <label class="check-label"><input type="checkbox" id="chk-ws"> Ignore whitespace</label>
+      <label class="check-label"><input type="checkbox" id="chk-case"> Ignore case</label>
+      <div class="stats-row" id="stats"></div>
+    </div>
+  </div>
+
+  <div class="editors">
+    <div class="editor-card">
+      <div class="editor-header">
+        <span class="editor-label">Original</span>
+        <span class="line-count" id="lc-a">0 lines</span>
+      </div>
+      <textarea id="ta-a" placeholder="Paste original text here…" spellcheck="false"></textarea>
+    </div>
+    <div class="editor-card">
+      <div class="editor-header">
+        <span class="editor-label">Modified</span>
+        <span class="line-count" id="lc-b">0 lines</span>
+      </div>
+      <textarea id="ta-b" placeholder="Paste modified text here…" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <div class="diff-card">
+    <div class="diff-card-header">
+      <span class="diff-card-title">Changes</span>
+    </div>
+    <div class="diff-scroll">
+      <div id="diff-out">
+        <div class="empty-state">
+          <svg class="empty-icon" viewBox="0 0 36 36" fill="none">
+            <rect x="4" y="6" width="28" height="24" rx="4" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="10" y1="13" x2="26" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="10" y1="18" x2="22" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="10" y1="23" x2="18" y2="23" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>Paste text above to compare</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function lcsArr(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0 && n === 0) return [];
+  const dp = Array.from({length: m+1}, () => new Int32Array(n+1));
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j],dp[i][j-1]);
+  const ops = []; let i=m, j=n;
+  while(i>0||j>0){
+    if(i>0&&j>0&&a[i-1]===b[j-1]){ops.push({t:'eq',v:a[i-1]});i--;j--;}
+    else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){ops.push({t:'ins',v:b[j-1]});j--;}
+    else{ops.push({t:'del',v:a[i-1]});i--;}
+  }
+  return ops.reverse();
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function charDiffHtml(oldLine, newLine) {
+  const ops = lcsArr(oldLine.split(''), newLine.split(''));
+  const oldHtml = [], newHtml = [];
+  ops.forEach(o => {
+    const v = esc(o.v);
+    if(o.t==='eq'){ oldHtml.push(v); newHtml.push(v); }
+    else if(o.t==='del'){ oldHtml.push(`<span class="c-del">${v}</span>`); }
+    else { newHtml.push(`<span class="c-add">${v}</span>`); }
+  });
+  return { oldHtml: oldHtml.join(''), newHtml: newHtml.join('') };
+}
+
+function updateLineCounts() {
+  const a = document.getElementById('ta-a').value;
+  const b = document.getElementById('ta-b').value;
+  const lca = a ? a.split('\n').length : 0;
+  const lcb = b ? b.split('\n').length : 0;
+  document.getElementById('lc-a').textContent = lca === 1 ? '1 line' : `${lca} lines`;
+  document.getElementById('lc-b').textContent = lcb === 1 ? '1 line' : `${lcb} lines`;
+}
+
+function render() {
+  updateLineCounts();
+  let va = document.getElementById('ta-a').value;
+  let vb = document.getElementById('ta-b').value;
+  const ignWs = document.getElementById('chk-ws').checked;
+  const ignCase = document.getElementById('chk-case').checked;
+  let ca = va, cb = vb;
+  if(ignCase){ca=ca.toLowerCase();cb=cb.toLowerCase();}
+  if(ignWs){
+    ca=ca.split('\n').map(l=>l.replace(/\s+/g,' ').trim()).join('\n');
+    cb=cb.split('\n').map(l=>l.replace(/\s+/g,' ').trim()).join('\n');
+  }
+  const out = document.getElementById('diff-out');
+  const statsEl = document.getElementById('stats');
+  if(!va&&!vb){
+    out.innerHTML='<div class="empty-state"><svg class="empty-icon" viewBox="0 0 36 36" fill="none"><rect x="4" y="6" width="28" height="24" rx="4" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="13" x2="26" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="18" x2="22" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="23" x2="18" y2="23" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Paste text above to compare</span></div>';
+    statsEl.innerHTML='';
+    return;
+  }
+
+  const origLines = va.split('\n'), modLines = vb.split('\n');
+  const cOrigLines = ca.split('\n'), cModLines = cb.split('\n');
+  const lineOps = lcsArr(cOrigLines, cModLines);
+
+  let adds=0,dels=0,eqs=0;
+  lineOps.forEach(o=>{if(o.t==='ins')adds++;else if(o.t==='del')dels++;else eqs++;});
+  statsEl.innerHTML = [
+    adds > 0 ? `<span class="stat-badge add">+${adds}</span>` : '',
+    dels > 0 ? `<span class="stat-badge del">−${dels}</span>` : '',
+    `<span class="stat-badge eq">${eqs} unchanged</span>`
+  ].join('');
+
+  const mode = document.getElementById('btn-side').classList.contains('active') ? 'side' : 'inline';
+  let li=0, ri=0;
+
+  if(mode==='side'){
+    const lRows=[], rRows=[], pending=[];
+    const flushPending = () => {
+      const dels=pending.filter(x=>x.t==='del'), ins=pending.filter(x=>x.t==='ins');
+      const maxLen=Math.max(dels.length,ins.length);
+      for(let k=0;k<maxLen;k++){
+        const dOp=dels[k],iOp=ins[k];
+        if(dOp&&iOp){
+          const {oldHtml,newHtml}=charDiffHtml(origLines[dOp.li],modLines[iOp.ri]);
+          lRows.push({n:dOp.li+1,html:oldHtml,t:'del'});
+          rRows.push({n:iOp.ri+1,html:newHtml,t:'ins'});
+        } else if(dOp){
+          lRows.push({n:dOp.li+1,html:esc(origLines[dOp.li]),t:'del'});
+          rRows.push({n:'',html:'',t:'empty'});
+        } else {
+          lRows.push({n:'',html:'',t:'empty'});
+          rRows.push({n:iOp.ri+1,html:esc(modLines[iOp.ri]),t:'ins'});
+        }
+      }
+      pending.length=0;
+    };
+    lineOps.forEach(o=>{
+      if(o.t==='eq'){flushPending();lRows.push({n:li+1,html:esc(origLines[li]),t:'eq'});rRows.push({n:ri+1,html:esc(modLines[ri]),t:'eq'});li++;ri++;}
+      else if(o.t==='del'){pending.push({t:'del',li:li});li++;}
+      else{pending.push({t:'ins',ri:ri});ri++;}
+    });
+    flushPending();
+    const buildCol = rows => rows.map(r=>{
+      let cls='diff-line';
+      if(r.t==='del') cls+=' line-del';
+      if(r.t==='ins') cls+=' line-add';
+      return `<div class="${cls}"><span class="ln">${r.n}</span><span class="lc">${r.html}</span></div>`;
+    }).join('');
+    out.innerHTML=`<div class="diff-side-grid"><div class="diff-col"><div class="diff-col-hdr">Original</div>${buildCol(lRows)}</div><div class="diff-col"><div class="diff-col-hdr">Modified</div>${buildCol(rRows)}</div></div>`;
+  } else {
+    const rows=[], pending=[];
+    const flushPending=()=>{
+      const dels=pending.filter(x=>x.t==='del'),ins=pending.filter(x=>x.t==='ins');
+      const maxLen=Math.max(dels.length,ins.length);
+      for(let k=0;k<maxLen;k++){
+        const dOp=dels[k],iOp=ins[k];
+        if(dOp&&iOp){
+          const {oldHtml,newHtml}=charDiffHtml(origLines[dOp.li],modLines[iOp.ri]);
+          rows.push(`<div class="diff-line line-del"><span class="ln">${dOp.li+1}</span><span class="inline-mark">−</span><span class="lc">${oldHtml}</span></div>`);
+          rows.push(`<div class="diff-line line-add"><span class="ln">${iOp.ri+1}</span><span class="inline-mark">+</span><span class="lc">${newHtml}</span></div>`);
+        } else if(dOp){
+          rows.push(`<div class="diff-line line-del"><span class="ln">${dOp.li+1}</span><span class="inline-mark">−</span><span class="lc">${esc(origLines[dOp.li])}</span></div>`);
+        } else {
+          rows.push(`<div class="diff-line line-add"><span class="ln">${iOp.ri+1}</span><span class="inline-mark">+</span><span class="lc">${esc(modLines[iOp.ri])}</span></div>`);
+        }
+      }
+      pending.length=0;
+    };
+    lineOps.forEach(o=>{
+      if(o.t==='eq'){flushPending();rows.push(`<div class="diff-line"><span class="ln">${li+1}</span><span class="inline-mark"> </span><span class="lc">${esc(origLines[li])}</span></div>`);li++;ri++;}
+      else if(o.t==='del'){pending.push({t:'del',li:li});li++;}
+      else{pending.push({t:'ins',ri:ri});ri++;}
+    });
+    flushPending();
+    out.innerHTML=`<div>${rows.join('')}</div>`;
+  }
+}
+
+['ta-a','ta-b'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+['chk-ws','chk-case'].forEach(id=>document.getElementById(id).addEventListener('change',render));
+['btn-side','btn-inline'].forEach(id=>document.getElementById(id).addEventListener('click',function(){
+  document.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active'));
+  this.classList.add('active');render();
+}));
+
+const s1=`The quick brown fox jumps over the lazy dog.
+Hello world, this is line two.
+Some unchanged content here.
+This line will be removed entirely.
+Final line of the original file.`;
+const s2=`The quick brown fox leaps over the lazy cat.
+Hello world, this is line two.
+Some unchanged content here.
+This is a brand new line added here!
+Final line of the modified version.`;
+document.getElementById('ta-a').value=s1;
+document.getElementById('ta-b').value=s2;
+render();
+</script>
+</body>
+</html>

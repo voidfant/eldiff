@@ -1,0 +1,16 @@
+{
+  "name": "eldiff",
+  "version": "1.0.0",
+  "description": "Liquid Glass text diff app for macOS",
+  "author": "Codex",
+  "scripts": {
+    "start": "tauri dev",
+    "dev": "tauri dev",
+    "build:mac": "tauri build --bundles app",
+    "dist:mac": "tauri build --bundles app,dmg",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0"
+  }
+}
