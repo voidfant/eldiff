@@ -107,7 +107,9 @@ const LOG_LEVEL_PATTERNS = {
   trace: /(?<lead>^|[^a-z0-9_])(?<token>trace|verbose)(?=[^a-z0-9_]|$)/i
 };
 const LOG_TIMESTAMP_PATTERN =
-  /\b(?:\d{4}-\d{2}-\d{2}[T ][0-2]\d:[0-5]\d(?::[0-5]\d(?:[.,]\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}[/-]\d{2}[/-]\d{2,4}[ T][0-2]?\d:[0-5]\d(?::[0-5]\d)?|[A-Z][a-z]{2}\s+\d{1,2}\s+[0-2]?\d:[0-5]\d:[0-5]\d|[0-2]?\d:[0-5]\d:[0-5]\d(?:[.,]\d{1,9})?)\b/;
+  /\b(?:\d{4}-\d{2}-\d{2}[T ][0-2]\d:[0-5]\d(?::[0-5]\d(?:[.,]\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}[/-]\d{2}[/-]\d{2,4}[ T][0-2]?\d:[0-5]\d(?::[0-5]\d(?:[.,]\d{1,9})?)?|[A-Z][a-z]{2}\s+\d{1,2}\s+[0-2]?\d:[0-5]\d:[0-5]\d|[0-2]?\d:[0-5]\d:[0-5]\d(?:[.,]\d{1,9})?)\b/;
+const LOG_HEADER_PATTERN =
+  /^\s*(?<timestamp>(?:\d{4}-\d{2}-\d{2}[T ][0-2]\d:[0-5]\d(?::[0-5]\d(?:[.,]\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}[/-]\d{2}[/-]\d{2,4}[ T][0-2]?\d:[0-5]\d(?::[0-5]\d(?:[.,]\d{1,9})?)?|[A-Z][a-z]{2}\s+\d{1,2}\s+[0-2]?\d:[0-5]\d:[0-5]\d|[0-2]?\d:[0-5]\d:[0-5]\d(?:[.,]\d{1,9})?))\s+(?<level>fatal|panic|critical|crit|error|err|warning|warn|information|info|notice|debug|trace|verbose)\s+(?<source>[A-Za-z0-9_.$:/@-]{1,120})(?=\s+(?:[-:])|\s|$)/i;
 const LOG_SOURCE_ASSIGNMENT_PATTERN =
   /\b(?:source|logger|target|module|component|service|thread|class)=["']?(?<source>[A-Za-z0-9_.$:/@-]{2,120})["']?/i;
 const LOG_SOURCE_BRACKET_PATTERN = /\[(?<source>[A-Za-z][\w.$:/@-]{1,100})\]/g;
@@ -476,6 +478,31 @@ function queueLogToolPersist() {
 }
 
 function detectLogLevel(line) {
+  const headerMatch = line.match(LOG_HEADER_PATTERN);
+  const headerLevel = headerMatch?.groups?.level?.toLowerCase();
+
+  if (headerLevel) {
+    if (['fatal', 'panic', 'critical', 'crit', 'error', 'err'].includes(headerLevel)) {
+      return 'error';
+    }
+
+    if (['warning', 'warn'].includes(headerLevel)) {
+      return 'warn';
+    }
+
+    if (['information', 'info', 'notice'].includes(headerLevel)) {
+      return 'info';
+    }
+
+    if (headerLevel === 'debug') {
+      return 'debug';
+    }
+
+    if (['trace', 'verbose'].includes(headerLevel)) {
+      return 'trace';
+    }
+  }
+
   if (LOG_LEVEL_PATTERNS.error.test(line)) {
     return 'error';
   }
@@ -511,6 +538,15 @@ function getMatchRange(match, groupName) {
 }
 
 function findLogLevelRange(line) {
+  const headerMatch = line.match(LOG_HEADER_PATTERN);
+
+  if (headerMatch?.groups?.level) {
+    return {
+      ...getMatchRange(headerMatch, 'level'),
+      level: detectLogLevel(line)
+    };
+  }
+
   for (const [level, pattern] of Object.entries(LOG_LEVEL_PATTERNS)) {
     const match = line.match(pattern);
 
@@ -539,6 +575,12 @@ function looksLikeTimestampToken(value) {
 }
 
 function findLogSourceRange(line) {
+  const headerMatch = line.match(LOG_HEADER_PATTERN);
+
+  if (headerMatch?.groups?.source) {
+    return getMatchRange(headerMatch, 'source');
+  }
+
   const assignmentMatch = line.match(LOG_SOURCE_ASSIGNMENT_PATTERN);
 
   if (assignmentMatch) {
@@ -707,6 +749,88 @@ function renderTextWithRanges(text, ranges) {
   return parts.join('');
 }
 
+function getStructuredLogRanges(text) {
+  const ranges = [];
+  const dividerMatch = text.match(/^\s*-{6,}\s*$/);
+
+  if (dividerMatch) {
+    ranges.push({
+      start: 0,
+      end: text.length,
+      value: text,
+      className: 'log-token-divider'
+    });
+  }
+
+  const labelPattern = /(^|[-\s])(?<label>_?[A-Za-z][A-Za-z0-9_ ./-]{0,80}):/g;
+
+  for (const labelMatch of text.matchAll(labelPattern)) {
+    ranges.push({
+      ...getMatchRange(labelMatch, 'label'),
+      className: 'log-token-field'
+    });
+  }
+
+  const pairPattern = /\b(?<key>[A-Za-z_][\w.-]*)=(?<value>'[^']*'|"[^"]*"|None|True|False|-?\d+(?:\.\d+)?|[A-Za-z_][\w./-]*)/g;
+  for (const match of text.matchAll(pairPattern)) {
+    const keyRange = getMatchRange(match, 'key');
+    const valueRange = getMatchRange(match, 'value');
+
+    ranges.push({
+      ...keyRange,
+      className: 'log-token-field'
+    });
+    ranges.push({
+      ...valueRange,
+      className: getStructuredValueClass(valueRange.value)
+    });
+  }
+
+  const actionPattern = /\b(?<name>[A-Z][A-Za-z_]*Action|FiredAction|Output|Object|State|Dump)\b/g;
+  for (const match of text.matchAll(actionPattern)) {
+    ranges.push({
+      ...getMatchRange(match, 'name'),
+      className: 'log-token-source'
+    });
+  }
+
+  const valuePattern = /(?<value>\*[^*\s][^*]*\*|\[[^\]\n]{1,40}\]|'[^']*'|"[^"]*"|\b(?:None|True|False|active|default|buy|sell|trade_to_reverse|django_unchained|T\dR|[UD]\d|[A-Z]{1,6}|-?\d+(?:\.\d+)?)\b)/g;
+  for (const match of text.matchAll(valuePattern)) {
+    const range = getMatchRange(match, 'value');
+
+    ranges.push({
+      ...range,
+      className: getStructuredValueClass(range.value)
+    });
+  }
+
+  return ranges;
+}
+
+function getStructuredValueClass(value) {
+  if (/^['"]/.test(value)) {
+    return 'log-token-string';
+  }
+
+  if (/^(?:True|False)$/i.test(value)) {
+    return 'log-token-boolean';
+  }
+
+  if (/^None$/i.test(value)) {
+    return 'log-token-null';
+  }
+
+  if (/^-?\d+(?:\.\d+)?$/.test(value)) {
+    return 'log-token-number';
+  }
+
+  if (/^\*.*\*$/.test(value) || /^\[.*\]$/.test(value)) {
+    return 'log-token-marker';
+  }
+
+  return 'log-token-value';
+}
+
 function renderJsonSyntax(value) {
   const tokenPattern =
     /("(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|-?\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b|\btrue\b|\bfalse\b|\bnull\b)/gi;
@@ -747,11 +871,15 @@ function renderLogLineContent(row) {
     timestampRange && { ...timestampRange, className: 'log-token-time' },
     levelRange && { ...levelRange, className: `log-token-level log-token-level-${levelRange.level}` },
     sourceRange && { ...sourceRange, className: 'log-token-source' },
-    jsonRange && { ...jsonRange, className: 'log-token-json' }
+    jsonRange && { ...jsonRange, className: 'log-token-json' },
+    ...getStructuredLogRanges(row.text)
   ];
 
   const jsonBlock = jsonRange
-    ? `<pre class="log-json-block" aria-label="Formatted JSON">${renderJsonSyntax(jsonRange.formatted)}</pre>`
+    ? `
+        <button class="log-json-toggle" data-log-json-toggle type="button" aria-expanded="false" aria-label="Toggle formatted JSON"></button>
+        <pre class="log-json-block" aria-label="Formatted JSON" hidden>${renderJsonSyntax(jsonRange.formatted)}</pre>
+      `
     : '';
 
   return `${renderTextWithRanges(row.text, ranges)}${jsonBlock}`;
@@ -762,11 +890,27 @@ function getLogRows() {
     return [];
   }
 
-  return state.logText.split('\n').map((text, index) => ({
-    line: index + 1,
-    text,
-    level: detectLogLevel(text)
-  }));
+  let currentEntryLevel = 'other';
+  let currentEntryLine = 0;
+
+  return state.logText.split('\n').map((text, index) => {
+    const detectedLevel = detectLogLevel(text);
+    const isEntryStart = Boolean(text.match(LOG_HEADER_PATTERN)) || (detectedLevel !== 'other' && !/^\s/.test(text));
+
+    if (isEntryStart) {
+      currentEntryLevel = detectedLevel;
+      currentEntryLine = index + 1;
+    }
+
+    return {
+      line: index + 1,
+      text,
+      level: isEntryStart ? detectedLevel : currentEntryLevel,
+      ownLevel: detectedLevel,
+      entryLine: currentEntryLine,
+      isContinuation: !isEntryStart && currentEntryLine > 0
+    };
+  });
 }
 
 function getVisibleLogRows() {
@@ -1190,6 +1334,9 @@ function renderLogTool() {
   refs.logOutput.innerHTML = visibleRows
     .map((row) => {
       const classes = ['log-row', `log-level-${row.level}`];
+      if (row.isContinuation) {
+        classes.push('continuation');
+      }
       if (row.line === activeLine) {
         classes.push('active');
       }
@@ -2056,6 +2203,20 @@ function bindEvents() {
   });
 
   refs.logOutput.addEventListener('click', (event) => {
+    const jsonToggle = event.target.closest('[data-log-json-toggle], .log-token-json');
+    if (jsonToggle) {
+      const lineText = jsonToggle.closest('.log-line-text');
+      const toggleButton = lineText?.querySelector('[data-log-json-toggle]');
+      const block = lineText?.querySelector('.log-json-block');
+
+      if (toggleButton && block) {
+        const expanded = block.hidden;
+        block.hidden = !expanded;
+        toggleButton.setAttribute('aria-expanded', String(expanded));
+      }
+      return;
+    }
+
     const button = event.target.closest('[data-log-jump-line]');
     if (!button) {
       return;

@@ -954,6 +954,14 @@ textarea::placeholder {
   border-left-color: var(--accent);
 }
 
+.log-row.continuation {
+  border-left-style: dotted;
+}
+
+.log-row.continuation .log-line-number {
+  opacity: 0.72;
+}
+
 .log-line-number {
   position: sticky;
   left: 0;
@@ -1019,9 +1027,62 @@ textarea::placeholder {
   font-weight: 700;
 }
 
+.log-token-field {
+  color: var(--accent-strong);
+  font-weight: 750;
+}
+
+.log-token-value,
+.log-token-string,
+.log-token-number,
+.log-token-boolean,
+.log-token-null,
+.log-token-marker {
+  border-radius: 4px;
+  padding: 0 3px;
+}
+
+.log-token-value {
+  color: var(--text);
+  background: rgba(126, 139, 173, 0.12);
+}
+
+.log-token-string {
+  color: var(--green-text);
+}
+
+.log-token-number {
+  color: #9a5f06;
+}
+
+.log-token-boolean {
+  color: var(--red-text);
+  font-weight: 700;
+}
+
+.log-token-null {
+  color: var(--text-soft);
+  font-style: italic;
+}
+
+.log-token-marker {
+  background: rgba(252, 211, 77, 0.22);
+  color: #8a5a00;
+  font-weight: 800;
+}
+
+.log-token-divider {
+  display: inline-block;
+  width: min(42rem, 100%);
+  color: var(--text-soft);
+  letter-spacing: 0.08em;
+  opacity: 0.72;
+}
+
 .log-token-json {
   background: rgba(126, 139, 173, 0.14);
   color: var(--text);
+  cursor: pointer;
 }
 
 .log-level-error {
@@ -1060,6 +1121,33 @@ textarea::placeholder {
   white-space: pre;
 }
 
+.log-json-block[hidden] {
+  display: none;
+}
+
+.log-json-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin: 6px 0 0;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-muted);
+  color: var(--text-muted);
+  font: 11px/1.2 var(--font-sans);
+}
+
+.log-json-toggle::before {
+  content: "▸";
+}
+
+.log-json-toggle[aria-expanded="true"]::before {
+  content: "▾";
+}
+
 .json-token-key {
   color: var(--accent-strong);
 }
@@ -1087,12 +1175,15 @@ textarea::placeholder {
   }
 
   .log-token-level-warn,
-  .json-token-number {
+  .json-token-number,
+  .log-token-number,
+  .log-token-marker {
     color: #fbbf24;
   }
 
   .log-token-level-info,
-  .json-token-key {
+  .json-token-key,
+  .log-token-field {
     color: var(--accent);
   }
 }
