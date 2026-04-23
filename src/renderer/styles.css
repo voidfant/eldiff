@@ -1125,29 +1125,6 @@ textarea::placeholder {
   display: none;
 }
 
-.log-json-toggle {
-  display: inline-flex;
-  align-items: center;
-  margin: 6px 0 0;
-  width: 24px;
-  height: 22px;
-  padding: 0;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--panel-muted);
-  color: var(--text-muted);
-  font: 11px/1.2 var(--font-sans);
-}
-
-.log-json-toggle::before {
-  content: "▸";
-}
-
-.log-json-toggle[aria-expanded="true"]::before {
-  content: "▾";
-}
-
 .json-token-key {
   color: var(--accent-strong);
 }

@@ -877,7 +877,6 @@ function renderLogLineContent(row) {
 
   const jsonBlock = jsonRange
     ? `
-        <button class="log-json-toggle" data-log-json-toggle type="button" aria-expanded="false" aria-label="Toggle formatted JSON"></button>
         <pre class="log-json-block" aria-label="Formatted JSON" hidden>${renderJsonSyntax(jsonRange.formatted)}</pre>
       `
     : '';
@@ -2203,16 +2202,15 @@ function bindEvents() {
   });
 
   refs.logOutput.addEventListener('click', (event) => {
-    const jsonToggle = event.target.closest('[data-log-json-toggle], .log-token-json');
+    const jsonToggle = event.target.closest('.log-token-json');
     if (jsonToggle) {
       const lineText = jsonToggle.closest('.log-line-text');
-      const toggleButton = lineText?.querySelector('[data-log-json-toggle]');
       const block = lineText?.querySelector('.log-json-block');
 
-      if (toggleButton && block) {
+      if (block) {
         const expanded = block.hidden;
         block.hidden = !expanded;
-        toggleButton.setAttribute('aria-expanded', String(expanded));
+        jsonToggle.classList.toggle('expanded', expanded);
       }
       return;
     }
