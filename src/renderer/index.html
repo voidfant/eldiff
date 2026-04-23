@@ -4,20 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ElDiff</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <div class="bg-orb orb-a"></div>
-  <div class="bg-orb orb-b"></div>
-  <div class="bg-orb orb-c"></div>
-
   <main class="app-shell">
-    <header class="topbar" data-tauri-drag-region>
+    <header class="topbar" id="app-topbar" data-tauri-drag-region>
       <div class="title-stack" data-tauri-drag-region>
-        <span class="eyebrow">ElDiff</span>
+        <span class="eyebrow" data-tauri-drag-region>ElDiff</span>
         <div class="title-row" data-tauri-drag-region>
-          <h1>Liquid Glass Diff</h1>
-          <span class="title-chip" id="appearance-pill">macOS desktop</span>
+          <h1 data-tauri-drag-region>Desktop Diff</h1>
+          <span class="title-chip" id="appearance-pill" data-tauri-drag-region>light mode</span>
         </div>
       </div>
       <div class="topbar-actions no-drag">
@@ -26,36 +23,107 @@
       </div>
     </header>
 
-    <section class="toolbar glass">
-      <div class="toolbar-actions">
-        <button class="action-btn" id="btn-open-left" type="button">Open Original</button>
-        <button class="action-btn" id="btn-open-right" type="button">Open Modified</button>
-        <button class="action-btn subtle" id="btn-save-left" type="button">Save Original</button>
-        <button class="action-btn subtle" id="btn-save-right" type="button">Save Modified</button>
-        <button class="action-btn accent" id="btn-export" type="button">Export Diff</button>
+    <section class="toolbar panel">
+      <div class="tool-tabs" role="tablist" aria-label="ElDiff tools">
+        <button class="tool-tab active" id="tab-diff" type="button" role="tab" aria-selected="true" aria-controls="diff-workspace" data-tool="diff">Diff</button>
+        <button class="tool-tab" id="tab-json" type="button" role="tab" aria-selected="false" aria-controls="json-workspace" data-tool="json">JSON</button>
+        <button class="tool-tab" id="tab-log" type="button" role="tab" aria-selected="false" aria-controls="log-workspace" data-tool="log">Logs</button>
       </div>
 
-      <div class="toolbar-controls">
-        <div class="seg-group">
-          <button class="seg-btn active" data-mode="side" id="btn-side" type="button">Side by Side</button>
-          <button class="seg-btn" data-mode="inline" id="btn-inline" type="button">Inline</button>
+      <div class="toolbar-main" id="diff-toolbar" data-tool-panel="diff">
+        <div class="toolbar-actions">
+          <button class="action-btn" id="btn-open-left" type="button">Open Original</button>
+          <button class="action-btn" id="btn-open-right" type="button">Open Modified</button>
+          <button class="action-btn subtle" id="btn-save-left" type="button">Save Original</button>
+          <button class="action-btn subtle" id="btn-save-right" type="button">Save Modified</button>
+          <button class="action-btn accent" id="btn-export" type="button">Export Diff</button>
         </div>
 
-        <label class="toggle-pill">
-          <input type="checkbox" id="chk-ws">
-          <span>Ignore whitespace</span>
-        </label>
+        <div class="toolbar-controls">
+          <div class="seg-group">
+            <button class="seg-btn active" data-mode="side" id="btn-side" type="button">Side by Side</button>
+            <button class="seg-btn" data-mode="inline" id="btn-inline" type="button">Inline</button>
+          </div>
 
-        <label class="toggle-pill">
-          <input type="checkbox" id="chk-case">
-          <span>Ignore case</span>
-        </label>
+          <label class="toggle-pill">
+            <input type="checkbox" id="chk-ws">
+            <span>Ignore whitespace</span>
+          </label>
+
+          <label class="toggle-pill">
+            <input type="checkbox" id="chk-case">
+            <span>Ignore case</span>
+          </label>
+        </div>
+
+        <div class="stats-row" id="stats"></div>
       </div>
 
-      <div class="stats-row" id="stats"></div>
+      <div class="toolbar-main json-toolbar" id="json-toolbar" data-tool-panel="json" hidden>
+        <div class="toolbar-actions">
+          <button class="action-btn" id="btn-open-json" type="button">Open JSON</button>
+          <button class="action-btn accent" id="btn-json-beautify" type="button">Beautify</button>
+          <button class="action-btn subtle" id="btn-json-minify" type="button">Minify</button>
+          <button class="action-btn subtle" id="btn-json-copy" type="button">Copy Result</button>
+          <button class="action-btn subtle" id="btn-json-save" type="button">Save Result</button>
+        </div>
+
+        <div class="toolbar-controls">
+          <label class="select-pill">
+            <span>Indent</span>
+            <select id="json-indent">
+              <option value="2" selected>2 spaces</option>
+              <option value="4">4 spaces</option>
+              <option value="tab">Tabs</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="stats-row" id="json-stats"></div>
+      </div>
+
+      <div class="toolbar-main log-toolbar" id="log-toolbar" data-tool-panel="log" hidden>
+        <div class="toolbar-actions">
+          <button class="action-btn" id="btn-open-log" type="button">Open Log</button>
+          <button class="action-btn subtle" id="btn-log-copy-visible" type="button">Copy Visible</button>
+          <button class="action-btn subtle" id="btn-log-clear" type="button">Clear</button>
+        </div>
+
+        <div class="toolbar-controls">
+          <label class="input-pill">
+            <span>Find</span>
+            <input id="log-search" type="search" placeholder="error, request id, path">
+          </label>
+
+          <div class="seg-group log-nav-group" aria-label="Log match navigation">
+            <button class="seg-btn" id="btn-log-prev" type="button">Prev</button>
+            <button class="seg-btn" id="btn-log-next" type="button">Next</button>
+          </div>
+
+          <label class="select-pill">
+            <span>Level</span>
+            <select id="log-level">
+              <option value="all" selected>All</option>
+              <option value="error">Errors</option>
+              <option value="warn">Warnings</option>
+              <option value="info">Info</option>
+              <option value="debug">Debug</option>
+              <option value="trace">Trace</option>
+            </select>
+          </label>
+
+          <label class="input-pill line-jump-pill">
+            <span>Line</span>
+            <input id="log-line-jump" type="number" min="1" placeholder="123">
+          </label>
+          <button class="action-btn subtle" id="btn-log-jump" type="button">Go</button>
+        </div>
+
+        <div class="stats-row" id="log-stats"></div>
+      </div>
     </section>
 
-    <aside class="history-panel glass" id="history-panel" aria-hidden="true">
+    <aside class="history-panel panel" id="history-panel" aria-hidden="true">
       <div class="history-header">
         <div>
           <span class="eyebrow">Recent</span>
@@ -66,41 +134,103 @@
       <div class="history-list" id="history-list"></div>
     </aside>
 
-    <section class="editor-grid">
-      <article class="editor-card glass">
-        <div class="card-header">
-          <div>
-            <span class="card-label">Original</span>
-            <div class="file-meta" id="meta-left">No file loaded</div>
+    <section class="workspace diff-workspace" id="diff-workspace" data-tool-panel="diff" role="tabpanel" aria-labelledby="tab-diff">
+      <section class="editor-grid">
+        <article class="editor-card panel">
+          <div class="card-header">
+            <div>
+              <span class="card-label">Original</span>
+              <div class="file-meta" id="meta-left">No file loaded</div>
+            </div>
+            <span class="line-count" id="lc-left">0 lines</span>
           </div>
-          <span class="line-count" id="lc-left">0 lines</span>
-        </div>
-        <textarea id="ta-left" placeholder="Paste original text here…" spellcheck="false"></textarea>
-      </article>
+          <textarea id="ta-left" placeholder="Paste original text here…" spellcheck="false"></textarea>
+        </article>
 
-      <article class="editor-card glass">
+        <article class="editor-card panel">
+          <div class="card-header">
+            <div>
+              <span class="card-label">Modified</span>
+              <div class="file-meta" id="meta-right">No file loaded</div>
+            </div>
+            <span class="line-count" id="lc-right">0 lines</span>
+          </div>
+          <textarea id="ta-right" placeholder="Paste modified text here…" spellcheck="false"></textarea>
+        </article>
+      </section>
+
+      <section class="diff-card panel">
         <div class="card-header">
           <div>
-            <span class="card-label">Modified</span>
-            <div class="file-meta" id="meta-right">No file loaded</div>
+            <span class="card-label">Changes</span>
+            <div class="diff-mode" id="mode-label">Side by Side</div>
           </div>
-          <span class="line-count" id="lc-right">0 lines</span>
+          <span class="line-count" id="diff-summary">Waiting for input</span>
         </div>
-        <textarea id="ta-right" placeholder="Paste modified text here…" spellcheck="false"></textarea>
+        <div class="diff-scroll">
+          <div id="diff-out"></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="workspace json-workspace" id="json-workspace" data-tool-panel="json" role="tabpanel" aria-labelledby="tab-json" hidden>
+      <article class="json-card panel">
+        <div class="card-header">
+          <div>
+            <span class="card-label">JSON Parser + Beautifier</span>
+            <div class="file-meta" id="json-meta">No JSON file loaded</div>
+          </div>
+          <span class="line-count" id="json-summary">Waiting for JSON</span>
+        </div>
+
+        <div class="json-grid">
+          <div class="json-pane">
+            <div class="json-pane-header">
+              <span>Input</span>
+              <span id="json-input-count">0 lines</span>
+            </div>
+            <textarea id="json-input" placeholder="{&#10;  &quot;paste&quot;: &quot;JSON here&quot;&#10;}" spellcheck="false"></textarea>
+          </div>
+
+          <div class="json-pane">
+            <div class="json-pane-header">
+              <span>Parsed Result</span>
+              <span id="json-result-count">0 bytes</span>
+            </div>
+            <pre class="json-output empty" id="json-output" aria-live="polite">Formatted JSON will appear here.</pre>
+          </div>
+        </div>
       </article>
     </section>
 
-    <section class="diff-card glass">
-      <div class="card-header">
-        <div>
-          <span class="card-label">Changes</span>
-          <div class="diff-mode" id="mode-label">Side by Side</div>
+    <section class="workspace log-workspace" id="log-workspace" data-tool-panel="log" role="tabpanel" aria-labelledby="tab-log" hidden>
+      <article class="log-card panel">
+        <div class="card-header">
+          <div>
+            <span class="card-label">Log Reader + Navigator</span>
+            <div class="file-meta" id="log-meta">No log file loaded</div>
+          </div>
+          <span class="line-count" id="log-summary">Waiting for logs</span>
         </div>
-        <span class="line-count" id="diff-summary">Waiting for input</span>
-      </div>
-      <div class="diff-scroll">
-        <div id="diff-out"></div>
-      </div>
+
+        <div class="log-grid">
+          <div class="log-pane">
+            <div class="log-pane-header">
+              <span>Source</span>
+              <span id="log-input-count">0 lines</span>
+            </div>
+            <textarea id="log-input" placeholder="Open a .log file or paste logs here…" spellcheck="false"></textarea>
+          </div>
+
+          <div class="log-pane">
+            <div class="log-pane-header">
+              <span>Navigator</span>
+              <span id="log-visible-count">0 visible</span>
+            </div>
+            <div class="log-output empty" id="log-output" aria-live="polite">Filtered log lines will appear here.</div>
+          </div>
+        </div>
+      </article>
     </section>
   </main>
 
